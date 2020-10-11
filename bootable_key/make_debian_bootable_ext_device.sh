@@ -78,7 +78,7 @@ while [ "$1" != "" ]; do
 				exit 1
 			fi
 			;;
-		-*|--*=)
+		*|-*|--*=)
 			echo "Error: unsupported argument $1"
 			usage
 			exit 1

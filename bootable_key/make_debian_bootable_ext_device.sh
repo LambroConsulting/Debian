@@ -141,7 +141,7 @@ umount --verbose ${DEV}*
 # GPT table
 parted $DEV --script mktable gpt
 # 100 MB EFI partition
-parted --align optimal $DEV --script mkpart EFI fat16 1MB 100MB
+parted --align optimal $DEV --script mkpart EFI fat32 1MB 100MB
 parted $DEV --script set 1 esp on
 sleep 1
 mkfs.vfat -v -n EFI ${DEV}1

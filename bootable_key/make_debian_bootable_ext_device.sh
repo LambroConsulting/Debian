@@ -15,11 +15,11 @@ usage () {
 	echo ""
 	echo "This script support the following arguments:"
 	echo ""
-	echo "-h | --help"
-	echo -e "-a | --arch {i386|amd64} \t\t [ Optional, default: amd64  ]" 
-	echo -e "-s | --iso-space N \t\t\t [ Optional, default: 2 (GB) ]"
-	echo -e "-t | --distro-type {stable|testing} \t [ Optional, default: stable ]"
-	echo -e "-d | --device /dev/sd{a..z} \t\t [ Required ]"
+	echo -e "-h | --help \t\t\t This help"
+	echo -e "-a | --arch {i386|amd64} \t\t [ Optional, default: amd64 ] \t Debian ditribution architecture to create" 
+	echo -e "-s | --iso-space N \t\t\t [ Optional, default: 2 (GB) ] \t Space to reserve for ISO images"
+	echo -e "-t | --distro-type {stable|testing} \t [ Optional, default: stable ] \t Type of Debian distribution"
+	echo -e "-d | --device /dev/sd{a..z} \t\t [ Required ] \t Name of the device to erase and write into"
 	echo ""
 }
 

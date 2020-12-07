@@ -5,10 +5,6 @@
 
 This script support the following arguments:
 ```
- -h | --help			[ Optional ]
- -i | --install 		[ Optional ]
- -c | --cmdline newstring 	[ Optional ]
- -r | --remove 			[ Optional ]
 
 ```
 

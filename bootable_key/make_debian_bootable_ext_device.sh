@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # 1.0 - Thu 01 Oct 2020 11:31:55 PM CEST - first version
+# 1.1 - Mon 09 Nov 2020 06:34:05 PM CET - temporary directories in /tmp
 
 usage () {
 	echo ""
@@ -21,6 +22,12 @@ usage () {
 	echo -e "-d | --device /dev/sd{a..z} \t\t [ Required ]"
 	echo ""
 }
+
+# is root?
+if [[ $EUID -ne 0 ]]; then
+    echo "Root privilege is required"
+    exit 1
+fi
 
 # number of arguments required
 if [ "$#" -lt "1" ]; then
@@ -126,8 +133,9 @@ case "$answer" in
 esac	
 
 # create temporary directory structure
-random_dir=$(date | md5sum)
-random_dir=${random_dir:0:32}
+#random_dir=$(date | md5sum)
+#random_dir=${random_dir:0:32}
+random_dir=$(mktemp -d)
 EFI=$random_dir/EFI
 DEBIAN=$random_dir/DEBIAN
 ISO=$random_dir/ISO
@@ -231,7 +239,7 @@ cp --verbose --archive --recursive $ISO/boot/grub/theme/* $DEBIAN/boot/grub/them
 # cleaning
 sync
 umount --verbose $EFI $ISO $DEBIAN
-rm --recursive $random_dir
+#rm --recursive $random_dir
 
 # end	
 exit 0

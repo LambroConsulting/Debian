@@ -1,0 +1,148 @@
+#!/bin/bash
+
+# 1.0 - Mon 23 Nov 2020 09:57:07 PM CET - first version
+
+usage () {
+	echo ""
+    	echo "           Unified Kernel Manager "
+    	echo "============================================"
+    	echo ""
+	echo "Usage: update-unikernel [-v] [-h] [-c] [kernel_version]"
+	echo ""
+	echo "Options:"	
+	echo -e "-v | --verbose \t\t\t Be verbose"
+	echo -e "-h | --help \t\t\t This message"
+	echo -e "-c | --cmdline cmd_string \t Update the kernel with the specified commandline"
+	echo ""
+}
+
+# is root?
+if [ "$EUID" != "0" ]; then
+	echo "Root privilege is required"
+	exit 1
+fi
+
+# number of arguments required
+if [ "$#" -lt "1" ]; then
+	usage
+	exit 1
+fi
+
+# prerequisites
+(apt list efibootmgr | grep installed  > /dev/null) && (apt list binutils | grep installed  > /dev/null)
+if [ "$?" != "0" ]; then
+    echo "Error: the efibootmgr package is required, please install it"
+    exit 1
+fi
+
+# global path variables
+kernel_image_dir="/boot"
+unikernel_image_dir="/boot/efi"
+
+# script support variables
+verbose=""
+kernel=""
+new_cmdline="N"
+new_kernel="N"
+tmp_dir=""
+
+# make unikernel variables
+os_release="/etc/os-release"
+cmd_line=""
+linux_vm=""
+initrd_image=""
+stub_image="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+kernel_image=""
+
+# make the unikernel based on settings
+make_unikernel () {
+    osrel="--add-section .osrel=""$os_release"" --change-section-vma .osrel=0x20000"
+    kline="--add-section .cmdline=""$cmd_line"" --change-section-vma .cmdline=0x30000"
+    linux="--add-section .linux=""$linux_vm"" --change-section-vma .linux=0x20000000"
+    initrd="--add-section .initrd=""$initrd_image"" --change-section-vma .initrd=0x30000000"
+    # unikernel creation
+    /usr/bin/objcopy $osrel $kline $linux $initrd $stub_image $kernel_image
+    # update cmdline file
+    if [ -e $unikernel_image_dir/unikernel-$kernel.cmdline ]; then
+	mv $verbose $unikernel_image_dir/unikernel-$kernel.cmdline $unikernel_image_dir/unikernel-$kernel-$(date +%Y%m%d-%H%M%S).cmdline
+    fi
+    cp $verbose $cmd_line $unikernel_image_dir/unikernel-$kernel.cmdline
+    # update efi boot manager
+    if [ "UNIKERNEL-$kernel" != "$(efibootmgr | cut -d " " -f 2 | grep $kernel)" ]; then
+	efibootmgr --create --label UNIKERNEL-$kernel --loader /unikernel-$kernel.efi
+    fi
+}
+
+# command switch parser
+while [ "$1" != "" ]
+do
+	case "$1" in
+		-h|--help)
+    			usage
+    			shift 1
+    			;;
+		-v|--verbose)
+			verbose="--verbose"
+			shift 1
+			;;
+		-c|--cmdline)
+			if [ -n "$2" ]&&[ ${2:0:1} != "-" ]; then
+				new_cmdline="Y"
+				tmp_dir=$(mktemp -d)
+				echo $2 > "$tmp_dir/unikernel.cmdline"
+				
+				shift 2
+	    		else
+				echo "Error: missing argument for $1"
+				exit 1
+	    		fi
+			;;
+		-*|--*)
+			echo "Error: unsupported argument $1"
+			exit 1
+	    		;;
+		*)
+			new_kernel="Y"
+			kernel=$1    
+			if [ ! -f $kernel_image_dir/vmlinuz-$kernel ]; then exit 1; fi
+			if [ ! -f $kernel_image_dir/initrd.img-$kernel ]; then exit 1; fi
+			# the iniramfs script pass 2 parameters, the last is unused
+			break
+			;;
+	esac
+done
+
+if [ "$new_cmdline" != "Y" ] && [ "$new_kernel" != "Y" ]; then 
+	echo "Warning: -c or kernel_version is required to take any action"
+	exit 1
+fi    
+
+case "$new_cmdline" in
+    Y)
+	cmd_line="$tmp_dir/unikernel.cmdline"
+	;;
+    N)
+	tmp_dir=$(mktemp -d)
+	echo $(cat /proc/cmdline | head -1) > "$tmp_dir/unikernel.cmdline"
+	cmd_line="$tmp_dir/unikernel.cmdline"
+	;;
+esac
+
+case "$new_kernel" in
+    Y)
+	kernel_image="$unikernel_image_dir/unikernel-$kernel.efi"
+	;;
+    N)
+	kernel=$(uname -r)
+	kernel_image="$unikernel_image_dir/unikernel-$kernel.efi"
+	;;
+esac
+
+linux_vm="$kernel_image_dir/vmlinuz-$kernel"
+initrd_image="$kernel_image_dir/initrd.img-$kernel"
+
+# generate kernel
+make_unikernel
+
+exit 0
+#end

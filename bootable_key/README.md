@@ -1,4 +1,4 @@
-# Make Debian bootable external device (with extra space for data 😃 )
+# Make Debian bootable external device (with extra space for data😃)
 
 ## USE AT YOUR OWN RISK
 ## AN INCORRECT USE CAN DESTROY YOUR SYSTEM AND DATA 

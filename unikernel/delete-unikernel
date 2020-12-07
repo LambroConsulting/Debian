@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# 1.0 - Mon 23 Nov 2020 09:27:58 PM CET - first version
+
+usage () {
+	echo ""
+    	echo "           Unified Kernel Manager "
+    	echo "============================================"
+    	echo ""
+	echo "Usage: delete-unikernel [-v] [-h] [-a] [kernel_version]"
+	echo ""
+	echo "Options:"	
+	echo -e "-v | --verbose \t Be verbose"
+	echo -e "-h | --help \t This message"
+	echo -e "-a | --all \t Delete all unikernels"
+    	echo ""
+}
+
+# is root?
+if [ "$EUID" != "0" ]; then
+	echo "Root privilege is required"
+	exit 1
+fi
+
+# number of arguments required
+if [ "$#" -lt "1" ]; then
+	usage
+	exit 1
+fi
+
+# prerequisites
+(apt list efibootmgr | grep installed  > /dev/null) && (apt list binutils | grep installed  > /dev/null)
+if [ "$?" != "0" ]; then
+    echo "Error: the efibootmgr package is required, please install it"
+    exit 1
+fi
+
+# global variables
+kernel_image_dir="/boot/efi"
+verbose=""
+delete_all=""
+kernel=""
+
+# command switch parser
+while [ "$1" != "" ]
+do
+	case "$1" in
+		-h|--help)
+    			usage
+			shift 1
+    			;;
+		-v|--verbose)
+			verbose="--verbose"
+			shift 1
+			;;
+		-a|--all)
+			delete_all="Y"
+			break
+			;;	
+		-*|--*)
+			echo "Error: unsupported argument $1"
+			exit 1
+			;;
+		*)
+			delete_all="N"
+			kernel=$1
+			break
+			;;
+	esac
+done
+
+case "$delete_all" in
+    Y)
+	list_efi=$(efibootmgr | grep UNIKERNEL)
+	list_boot=$(ls -1 $kernel_image_dir/unikernel*)
+	;;
+    N)
+	list_efi=$(efibootmgr | grep UNIKERNEL-$kernel)
+	list_boot=$(ls -1 $kernel_image_dir/unikernel-$kernel*)
+	;;
+    *)
+	echo "Warning: -a or kernel_version is necessary to take any action"
+	exit 1
+esac
+
+# delete efi boot entries
+if [ "$list_efi" != "" ]; then
+    echo $list_efi | while read a
+    do
+	efibootmgr $verbose --delete-bootnum --bootnum $(echo $a | cut -d "*" -f 1 | cut -d "t" -f 2)
+    done
+fi
+
+# delete boot images
+if [ "$list_boot" != "" ]; then
+    echo $list_boot | while read a
+    do
+	rm $verbose $a
+    done
+fi
+
+exit 0
+#end
+

@@ -11,6 +11,7 @@ make a bootable device (in most cases a USB key) with three consecutive partitio
 This script support the following arguments:
 ```
  -h | --help 
+ -v | --verbose				 [ Optional ]
  -a | --arch {i386|amd64} 		 [ Optional, default: amd64  ]
  -s | --iso-space N 			 [ Optional, default: 2 (GB) ]
  -t | --distro-type {stable|testing} 	 [ Optional, default: stable ]

@@ -16,6 +16,7 @@ usage () {
 	echo "This script support the following arguments:"
 	echo ""
 	echo -e "-h | --help \t\t\t This help"
+	echo -e "-v | $VERBOSE \t\t\t Verbose output"
 	echo -e "-a | --arch {i386|amd64} \t\t [ Optional, default: amd64 ] \t Debian ditribution architecture to create" 
 	echo -e "-s | --iso-space N \t\t\t [ Optional, default: 2 (GB) ] \t Space to reserve for ISO images"
 	echo -e "-t | --distro-type {stable|testing} \t [ Optional, default: stable ] \t Type of Debian distribution"
@@ -40,6 +41,7 @@ ARCH=amd64
 SPACE=2
 DISTRO=stable
 DEV=
+VERBOSE=
 
 # argument parsing
 
@@ -48,6 +50,10 @@ while [ "$1" != "" ]; do
 		-h|--help)
 			usage
 			exit 1
+			;;	
+		-v|$VERBOSE)
+			VERBOSE="$VERBOSE"
+			shift 1
 			;;	
 		-a|--arch)
 			if [ -n "$2" ]&&[ ${2:0:1} != "-" ]&&([ "$2" == "amd64" ]||[ "$2" == "i386" ]); then
@@ -139,10 +145,10 @@ random_dir=$(mktemp -d)
 EFI=$random_dir/EFI
 DEBIAN=$random_dir/DEBIAN
 ISO=$random_dir/ISO
-mkdir --verbose --parents $EFI $DEBIAN $ISO
+mkdir $VERBOSE --parents $EFI $DEBIAN $ISO
 
 # unmounting
-umount --verbose ${DEV}*
+umount $VERBOSE ${DEV}*
 
 # partitioning
 
@@ -164,21 +170,21 @@ parted --align optimal $DEV --script mkpart DATA ntfs ${SPACE}GB 100%
 parted $DEV --script set 3 msftdata on
 sleep 1
 # mkfs.vfat -n DATA ${DEV}3 # 4GB devices are obsolete
-mkfs.ntfs --label DATA --fast --verbose ${DEV}3
+mkfs.ntfs --label DATA --fast $VERBOSE ${DEV}3
 # volume summary
 parted $DEV --script print 
 
 # mounting
-mount --verbose ${DEV}1 $EFI
-mount --verbose ${DEV}2 $DEBIAN
+mount $VERBOSE ${DEV}1 $EFI
+mount $VERBOSE ${DEV}2 $DEBIAN
 
 # install bootloader
 case "$ARCH" in
 	amd64)
-		grub-install --verbose --removable --no-uefi-secure-boot --target=x86_64-efi --boot-directory=./$DEBIAN/boot --efi-directory=./$EFI $DEV
+		grub-install $VERBOSE --removable --no-uefi-secure-boot --target=x86_64-efi --boot-directory=$DEBIAN/boot --efi-directory=$EFI $DEV
 	;;
 	i386)
-		grub-install --verbose --removable --no-uefi-secure-boot --target=i386-efi --boot-directory=./$DEBIAN/boot --efi-directory=./$EFI $DEV
+		grub-install $VERBOSE --removable --no-uefi-secure-boot --target=i386-efi --boot-directory=$DEBIAN/boot --efi-directory=$EFI $DEV
 	;;
 	*)
 		echo "Error: unsupported architecture $ARCH"
@@ -186,30 +192,30 @@ case "$ARCH" in
 esac
 
 # download hd-media components
-mkdir --verbose $DEBIAN/install.amd
-wget --verbose --progress=bar --directory-prefix=$DEBIAN/install.amd http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/initrd.gz 
-wget --verbose --progress=bar --directory-prefix=$DEBIAN/install.amd http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/vmlinuz
+mkdir $VERBOSE $DEBIAN/install.amd
+wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/install.amd http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/initrd.gz 
+wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/install.amd http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/vmlinuz
 
-mkdir --verbose $DEBIAN/install.amd/gtk
-wget --verbose --progress=bar --directory-prefix=$DEBIAN/install.amd/gtk http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/gtk/initrd.gz 
-wget --verbose --progress=bar --directory-prefix=$DEBIAN/install.amd/gtk http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/gtk/vmlinuz
+mkdir $VERBOSE $DEBIAN/install.amd/gtk
+wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/install.amd/gtk http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/gtk/initrd.gz 
+wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/install.amd/gtk http://ftp.debian.org/debian/dists/$DISTRO/main/installer-$ARCH/current/images/hd-media/gtk/vmlinuz
 
 # download bootable iso images
-mkdir --verbose $DEBIAN/isolinux
+mkdir $VERBOSE $DEBIAN/isolinux
 case "$DISTRO" in
 	stable)
 		# download installation iso
-		wget --verbose --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/debian-cd/current/$ARCH/iso-cd/debian-1{0..9}.{0..9}.0-$ARCH-netinst.iso
-		wget --verbose --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/unofficial/non-free/images-including-firmware/current/$ARCH/iso-cd/firmware-1{0..9}.{0..9}.0-$ARCH-netinst.iso
+		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/debian-cd/current/$ARCH/iso-cd/debian-1{0..9}.{0..9}.0-$ARCH-netinst.iso
+		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/unofficial/non-free/images-including-firmware/current/$ARCH/iso-cd/firmware-1{0..9}.{0..9}.0-$ARCH-netinst.iso
 		# mount the iso to extract boot files
-		mount --verbose $DEBIAN/isolinux/debian-*-${ARCH}-netinst.iso $ISO
+		mount $VERBOSE $DEBIAN/isolinux/debian-*-${ARCH}-netinst.iso $ISO
 	;;
 	testing)
 		# download installation iso
-		wget --verbose --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/bullseye_di_alpha2/$ARCH/iso-cd/debian-bullseye-DI-alpha2-$ARCH-netinst.iso
-		wget --verbose --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/unofficial/non-free/images-including-firmware/bullseye_di_alpha2/$ARCH/iso-cd/firmware-bullseye-DI-alpha2-$ARCH-netinst.iso
+		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/bullseye_di_alpha2/$ARCH/iso-cd/debian-bullseye-DI-alpha2-$ARCH-netinst.iso
+		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/unofficial/non-free/images-including-firmware/bullseye_di_alpha2/$ARCH/iso-cd/firmware-bullseye-DI-alpha2-$ARCH-netinst.iso
 		# mount the iso to extract boot files
-		mount --verbose $DEBIAN/isolinux/debian-bullseye-DI-alpha2-$ARCH-netinst.iso $ISO
+		mount $VERBOSE $DEBIAN/isolinux/debian-bullseye-DI-alpha2-$ARCH-netinst.iso $ISO
 	;;
 	*)
 		echo "Error: unsupported distribution $DISTRO"
@@ -219,26 +225,26 @@ esac
 # copy boot files in debian partition
 case "$ARCH" in
 	amd64)
-		cp --verbose --archive $ISO/boot/grub/x86_64-efi/grub.cfg $DEBIAN/boot/grub/x86_64-efi
+		cp $VERBOSE --archive $ISO/boot/grub/x86_64-efi/grub.cfg $DEBIAN/boot/grub/x86_64-efi
 	;;
 	i386)
-		cp --verbose --archive $ISO/boot/grub/i386-efi/grub.cfg $DEBIAN/boot/grub/i386-efi
+		cp $VERBOSE --archive $ISO/boot/grub/i386-efi/grub.cfg $DEBIAN/boot/grub/i386-efi
 	;;
 	*)
 		echo "Error: unsupported architecture $ARCH"
 		exit 1
 esac
-cp --verbose --archive $ISO/isolinux/splash.png $DEBIAN/isolinux
-cp --verbose --archive $ISO/boot/grub/grub.cfg $DEBIAN/boot/grub
-cp --verbose --archive $ISO/boot/grub/font.pf2 $DEBIAN/boot/grub
+cp $VERBOSE --archive $ISO/isolinux/splash.png $DEBIAN/isolinux
+cp $VERBOSE --archive $ISO/boot/grub/grub.cfg $DEBIAN/boot/grub
+cp $VERBOSE --archive $ISO/boot/grub/font.pf2 $DEBIAN/boot/grub
 
 # some graphics
 mkdir $DEBIAN/boot/grub/theme
-cp --verbose --archive --recursive $ISO/boot/grub/theme/* $DEBIAN/boot/grub/theme
+cp $VERBOSE --archive --recursive $ISO/boot/grub/theme/* $DEBIAN/boot/grub/theme
 
 # cleaning
 sync
-umount --verbose $EFI $ISO $DEBIAN
+umount $VERBOSE $EFI $ISO $DEBIAN
 #rm --recursive $random_dir
 
 # end	

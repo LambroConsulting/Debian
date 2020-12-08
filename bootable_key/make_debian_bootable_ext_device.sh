@@ -212,8 +212,8 @@ case "$DISTRO" in
 	;;
 	testing)
 		# download installation iso
-		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/bullseye_di_alpha2/$ARCH/iso-cd/debian-bullseye-DI-alpha2-$ARCH-netinst.iso
-		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/unofficial/non-free/images-including-firmware/bullseye_di_alpha2/$ARCH/iso-cd/firmware-bullseye-DI-alpha2-$ARCH-netinst.iso
+		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/bullseye_di_alpha3/$ARCH/iso-cd/debian-bullseye-DI-alpha3-$ARCH-netinst.iso
+		wget $VERBOSE --progress=bar --directory-prefix=$DEBIAN/isolinux https://cdimage.debian.org/cdimage/unofficial/non-free/images-including-firmware/bullseye_di_alpha3+nonfree/$ARCH/iso-cd/firmware-bullseye-DI-alpha3-$ARCH-netinst.iso
 		# mount the iso to extract boot files
 		mount $VERBOSE $DEBIAN/isolinux/debian-bullseye-DI-alpha2-$ARCH-netinst.iso $ISO
 	;;

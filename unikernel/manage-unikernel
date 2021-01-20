@@ -39,7 +39,7 @@ cmdline_in_exec=$(cat /proc/cmdline | head -1)
 # prerequisites
 (apt list efibootmgr | grep installed  > /dev/null) && (apt list binutils | grep installed  > /dev/null)
 if [ "$?" != "0" ]; then
-	echo "Error: the efibootmgr and binutils packages are required, please install it"
+	echo "Error: the efibootmgr and binutils packages are requirement, please install it"
 	exit 1
 fi
 
@@ -78,9 +78,9 @@ case "$install" in
 	cp $verbose manage-unikernel delete-unikernel update-unikernel $install_dir
 	chmod $verbose 755 $install_dir/manage-unikernel $install_dir/delete-unikernel $install_dir/update-unikernel
 	mkdir $verbose --parents /etc/initramfs/post-update.d/		    		
-	ln $verbose -s $install_dir/update-unikernel /etc/initramfs/post-update.d/99_update-unikernel
+	ln $verbose -s $install_dir/update-unikernel /etc/initramfs/post-update.d/98_update-unikernel
 	ln $verbose -s $install_dir/delete-unikernel /etc/kernel/postrm.d/99_delete-unikernel			
-	$install_dir/update-unikernel $verbose --cmdline "$cmdline_in_exec" "$kernel_in_exec" 
+	#$install_dir/update-unikernel $verbose --cmdline "$cmdline_in_exec" "$kernel_in_exec" 
 	exit 0
 	;;
     N)

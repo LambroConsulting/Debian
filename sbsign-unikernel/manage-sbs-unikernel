@@ -1,0 +1,155 @@
+#!/bin/bash
+
+# Fri 01 Jan 2021 09:00:07 PM CET 1.0 - first version
+
+usage () {
+	echo ""
+    	echo "  Secure Boot Sign - Unified Kernel Manager  "
+    	echo "============================================="
+    	echo ""
+	echo "Usage: manage-sbs-unikernel [-v] [-h] [-i|-r]"
+	echo ""
+	echo "Options:"	
+	echo -e "-v | --verbose \t\t Be verbose"
+	echo -e "-h | --help \t\t This message"
+	echo -e "-i | --install-hook \t Install the signing unikernel management scripts"
+    	echo -e "-r | --remove-hook \t Remove the signing unikernel management scripts"
+	echo ""
+}
+
+# is root?
+if [ "$EUID" != "0" ]; then
+	echo "Root privilege is required"
+	exit 1
+fi
+
+# number of arguments required
+if [ "$#" -lt "1" ]; then
+	usage
+	exit 1
+fi
+
+# global variables
+verbose=""
+install_dir="/usr/local/sbin"
+
+# prerequisites
+(apt list uuid | grep installed  > /dev/null) && (apt list efitools | grep installed  > /dev/null) && (apt list efivar | grep installed  > /dev/null)
+if [ "$?" != "0" ]; then
+    echo "Error: the uuid, efitools, efivar packages are requirement, please install it"
+    exit 1
+fi
+
+echo "The efi variables for SecureBoot must be empty"
+efi-readvar
+read -p "Press Ctrl+C to abort and reset the EFI variables in the BIOS"
+
+
+# command switch parser
+while [ "$1" != "" ]
+do
+	case "$1" in
+		-h|--help)
+    			usage
+    			shift 1
+    			;;
+		-v|--verbose)
+			verbose="--verbose"
+			shift 1
+			;;
+		-i|--install-hook)
+			install="Y"
+			shift 1
+			;;
+		-r|--remove-hook)
+			install="N"
+			shift 1
+			;;	
+		-*|--*)
+			echo "Error: unsupported argument $1"
+			exit 1
+	    		;;
+		*)
+			echo "Error: unrecognized argument $1"
+			exit 1
+	esac
+done
+
+case "$install" in
+    Y)
+	cp $verbose manage-sbs-unikernel sbsign-unikernel $install_dir
+	chmod $verbose 755 $install_dir/manage-sbs-unikernel $install_dir/sbsign-unikernel
+	mkdir $verbose --parents /etc/initramfs/post-update.d/		    		
+	ln $verbose -s $install_dir/sbsign-unikernel /etc/initramfs/post-update.d/99_sbsign-unikernel
+
+	$crt_name=$(hostname)
+
+	sbs_dir=./sbs
+	echo "Create output directory $sbs_dir"
+	mkdir $verbose $sbs_dir
+
+	echo "Create unique GUID"
+	GUID=$(uuid)
+	echo $GUID > $sbs_dir/GUID.txt
+			
+	echo "Create the PK key"
+	mkdir $verbose $sbs_dir/PK
+	echo -n "Generate self-signed PK certificate in PEM format"
+	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$crt_name UEFI Platform Key (PK)/" -keyout $sbs_dir/PK/PK.key -out $sbs_dir/PK/PK.crt -days 3650 -nodes -sha256
+	#echo -n "PEM to DER format conversion"
+	#openssl x509 -outform der -in $sbs_dir/PK/PK.crt -out $sbs_dir/PK/PK.cer
+	echo -n "PEM to Efi Signature List conversion"
+	cert-to-efi-sig-list -g $GUID $sbs_dir/PK/PK.crt $sbs_dir/PK/PK.esl
+	echo -n "Signing the PK Efi Signature List"
+	sign-efi-sig-list -k $sbs_dir/PK/PK.key -c $sbs_dir/PK/PK.crt PK $sbs_dir/PK/PK.esl $sbs_dir/PK/PK.auth
+
+	echo "Create the KEK key"
+	mkdir $verbose $sbs_dir/KEK
+	echo -n "Generate certificate in PEM format"	
+	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$crt_name UEFI Key Exchange Key (KEK)/" -keyout $sbs_dir/KEK/KEK.key -out $sbs_dir/KEK/KEK.crt -days 3650 -nodes -sha256
+	#echo -n "PEM to DER format conversion"
+	#openssl x509 -outform der -in $sbs_dir/KEK/KEK.crt -out $sbs_dir/KEK/KEK.cer
+	echo -n "PEM to Efi Signature List conversion"
+	cert-to-efi-sig-list -g $GUID $sbs_dir/KEK/KEK.crt $sbs_dir/KEK/KEK.esl
+	echo -n "Signing the KEK Efi Signature List with PK key"
+	sign-efi-sig-list -k $sbs_dir/PK/PK.key -c $sbs_dir/PK/PK.crt KEK $sbs_dir/KEK/KEK.esl $sbs_dir/KEK/KEK.auth
+
+
+	echo "Create the DB key"
+	mkdir $verbose $sbs_dir/DB
+	echo -n "Generate certificate in PEM format"	
+	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$crt_name Allow Signing key (db)/" -keyout $sbs_dir/DB/db.key -out $sbs_dir/DB/db.crt -days 3650 -nodes -sha256
+	#echo -n "PEM to DER format conversion"
+	#openssl x509 -outform der -in $sbs_dir/DB/db.crt -out $sbs_dir/DB/db.cer
+	echo -n "PEM to Efi Signature List conversion"
+	cert-to-efi-sig-list -g $GUID $sbs_dir/DB/db.crt $sbs_dir/DB/db.esl
+	echo -n "Signing the db Efi Signature List with KEK key"
+	sign-efi-sig-list -k $sbs_dir/KEK/KEK.key -c $sbs_dir/KEK/KEK.crt DB $sbs_dir/DB/db.esl $sbs_dir/DB/db.auth
+
+	echo -n "Insert the Efi Signature List in the SecureBoot variables"
+	echo "Inserting db key"
+	efi-updatevar -e -f $sbs_dir/DB/db.auth db
+	echo "Inserting KEK key"
+	efi-updatevar -e -f $sbs_dir/KEK/KEK.auth KEK
+	echo "Inserting PK key"
+	efi-updatevar -f $sbs_dir/PK/PK.auth PK
+
+	echo "Prior to activate secure boot feature in the bios a kernel must be signed with sbsign-unikernel"
+	echo "Backup *.key, *.crt and GUID.txt , optionally all other files"
+
+	exit 0
+	;;
+    N)
+	echo "The new kernels are will not be signed."
+	echo "Disable Secure Boot if you want to boot a new kernel."
+	rm $verbose /etc/initramfs/post-update.d/99_sbsign-unikernel
+	rm $verbose $install_dir/manage-sbs-unikernel $install_dir/sbsign-unikernel
+	exit 0
+	;;
+    *)
+	echo "Warning: -i or -r argument is necessary to take any action"
+	exit 1
+esac
+
+exit 0
+#end

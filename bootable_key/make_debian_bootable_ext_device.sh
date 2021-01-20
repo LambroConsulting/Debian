@@ -51,8 +51,8 @@ while [ "$1" != "" ]; do
 			usage
 			exit 1
 			;;	
-		-v|$VERBOSE)
-			VERBOSE="$VERBOSE"
+		-v|--verbose)
+			VERBOSE="--verbose"
 			shift 1
 			;;	
 		-a|--arch)
